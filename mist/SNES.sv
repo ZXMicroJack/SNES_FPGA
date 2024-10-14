@@ -170,7 +170,7 @@ assign LED  = ~ioctl_download & ~bk_ena;
 `include "build_id.v"
 parameter CONF_STR = {
 	"SNES;;",
-	"F1,SFCSMCBIN,Load;",
+	"F1SNES,SFCSMCBIN,Load;",
 	"F2,SPC,Load;",
 	"S,SAV,Mount;",
 	"T3,Write Save RAM;",
@@ -178,7 +178,7 @@ parameter CONF_STR = {
 	"OEF,Video Region,NTSC,PAL,NTSC-DeJittered;",
 	"OAB,Scandoubler Fx,None,CRT 25%,CRT 50%,CRT 75%;",
 	"OG,Blend,On,Off;",
-	"O12,ROM Type,LoROM,HiROM,ExHiROM;",
+	"O12,ROM Type,Auto,LoROM,HiROM,ExHiROM;",
 	"O56,Mouse,None,Port1,Port2;",
 	"OPQ,Lightgun,Off,Super Scope,Justifier;",
 	"O7,Swap Joysticks,No,Yes;",
@@ -190,7 +190,7 @@ parameter CONF_STR = {
 	"V,v1.0.",`BUILD_DATE
 };
 
-wire [1:0] LHRom_type = status[2:1];
+wire [1:0] st_rom = status[2:1];
 wire [1:0] scanlines = status[11:10];
 wire [1:0] video_region = status[15:14];
 wire [1:0] mouse_mode = status[6:5];
@@ -241,8 +241,8 @@ always @(posedge clk_sys) begin
 end
 
 //////////////////   MiST I/O   ///////////////////
-wire  [9:0] conf_str_addr;
-wire  [7:0] conf_str_char;
+wire [10:0] conf_str_addr;
+reg   [7:0] conf_str_char;
 
 wire [31:0] joystick0;
 wire [31:0] joystick1;
@@ -356,10 +356,10 @@ user_io #(
 wire [24:0] ps2_mouse = { mouse_strobe_level, mouse_y[7:0], mouse_x[7:0], mouse_flags };
 reg         mouse_strobe_level;
 
-always @(posedge clk_sys) begin
+always @(posedge SPI_SCK)
 	conf_str_char <= CONF_STR[(($size(CONF_STR)>>3) - conf_str_addr - 1)<<3 +:8];
-	if (mouse_strobe) mouse_strobe_level <= ~mouse_strobe_level;
-end
+
+always @(posedge clk_sys) if (mouse_strobe) mouse_strobe_level <= ~mouse_strobe_level;
 
 data_io #(.ROM_DIRECT_UPLOAD(DIRECT_UPLOAD), .DOUT_16(1'b1)) data_io
 (
@@ -795,9 +795,10 @@ reg  [7:0] company_header;
 reg  [3:0] rom_size;
 reg [23:0] rom_mask, ram_mask;
 
+wire [1:0] LHRom_type = st_rom == 0 ? ioctl_index[7:6] : st_rom - 1'd1;
 wire [8:0] hdr_prefix = LHRom_type == 2 ? { 8'h40, 1'b1 } : // ExHiROM
                         LHRom_type == 1 ? { 8'h00, 1'b1 } : // HiROM
-						9'd0; // LoROM
+                        9'd0; // LoROM
 
 always @(posedge clk_sys) begin
 	reg [3:0] ram_size;
