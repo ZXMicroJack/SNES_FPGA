@@ -16,7 +16,7 @@ module MSU
 	output            MSU_SEL,
 
 	output reg [15:0] track_num,
-	output            track_request,
+	output reg        track_request,
 	input             track_mounting,
 
 	// Audio player control
@@ -55,7 +55,7 @@ reg [15:0] MSU_TRACK;  // $2004 - $2005
 // banks 00-3F and 80-BF, address 2000-2007
 assign MSU_SEL = ENABLE && !ADDR[22] && (ADDR[15:4] == 'h200) && !ADDR[3];
 
-wire status_audio_busy = track_request;
+reg status_audio_busy = track_request;
 
 reg data_ack_1 = 1'b0;
 reg status_data_busy = 1'b0;

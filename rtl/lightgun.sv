@@ -19,7 +19,7 @@ module lightgun
 
 	input        PORT_LATCH,
 	input        PORT_CLK,
-	output       PORT_P6,
+	output   reg PORT_P6,
 	output [1:0] PORT_DO
 );
 

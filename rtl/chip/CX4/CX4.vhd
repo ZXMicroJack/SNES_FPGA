@@ -1253,12 +1253,19 @@ begin
 		end if;
 	end process; 
 
-	DATA_ROM : entity work.spram generic map(10, 24, "rtl/chip/CX4/drom.mif")
+--	DATA_ROM : entity work.spram generic map(10, 24, "rtl/chip/CX4/drom.mif")
+--	port map(
+--		clock		=> not CLK,
+--		0rdaddress	=> DATA_ROM_ADDR,
+--		q			=> DATA_ROM_Q
+--	);
+	DATA_ROM : entity work.datarom2 generic map(10, 24)
 	port map(
 		clock		=> not CLK,
 		address	=> DATA_ROM_ADDR,
 		q			=> DATA_ROM_Q
 	);
+
 	
 	DATA_RAM_WE_A <= '1' when (CPU_EN = '1' and INST = I_WRRAM) or (EN = '1' and DMA_RUN = '1' and RAM_SEL = '1' and DMA_STATE = '1') else '0';
 	DATA_RAM_ADDR_B <= ADDR(11 downto 0);
@@ -1301,7 +1308,7 @@ begin
 	end generate;
 
 	mlab: if HAVE_MLAB generate
-	CACHEL : entity work.cx4cache
+	CACHEL : entity work.spram
 	port map(
 		clock			=> CLK,
 		wraddress	=> CACHE_ADDR_WR(9 downto 1),
@@ -1311,7 +1318,7 @@ begin
 		q				=> CACHE_Q_L
 	);
 	
-	CACHEH : entity work.cx4cache
+	CACHEH : entity work.spram
 	port map(
 		clock			=> CLK,
 		wraddress	=> CACHE_ADDR_WR(9 downto 1),

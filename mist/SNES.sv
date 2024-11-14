@@ -1,3 +1,15 @@
+`define I2S_AUDIO 1
+`define USE_AUDIO_IN 1
+`define USE_CLOCK_50 1
+`define BIG_OSD 1
+`define USE_SIMPLE_SDRAM 1
+`define BRAM_LEVEL_1 1
+`define BRAM_WRAM 1
+`define BRAM_ARAM 1
+`define EXTRA_CHIPS_1 1
+`define EXTRA_CHIPS_2 1
+`define AUDIO_CLOCK_RATE 32'd85_840_000
+`define VGA_8BIT 1
 //============================================================================
 //  SNES top-level for MiST
 //
@@ -15,7 +27,6 @@
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //============================================================================
-
 module SNES_MIST_TOP
 (
 	input         CLOCK_27,
@@ -292,6 +303,13 @@ wire        i2c_ack;
 wire        i2c_end;
 `endif
 
+wire SPI_DO_UIO;
+wire SPI_DO_DIO;
+
+assign SPI_DO = !CONF_DATA0 ? SPI_DO_UIO :
+                !SPI_SS2 ? SPI_DO_DIO :
+                !SPI_SS4 ? SPI_DO_DIO : 1'bZ;
+
 user_io #(
 	.ROM_DIRECT_UPLOAD(DIRECT_UPLOAD),
 `ifdef DUAL_SDRAM
@@ -304,7 +322,7 @@ user_io #(
 	.SPI_SS_IO(CONF_DATA0),
 	.SPI_CLK(SPI_SCK),
 	.SPI_MOSI(SPI_DI),
-	.SPI_MISO(SPI_DO),
+	.SPI_MISO(SPI_DO_UIO),
 `ifdef DUAL_SDRAM
 	.conf_str(CONF_STR),
 `else
@@ -366,7 +384,7 @@ data_io #(.ROM_DIRECT_UPLOAD(DIRECT_UPLOAD), .DOUT_16(1'b1)) data_io
 	.clk_sys(clk_sys),
 	.SPI_SCK(SPI_SCK),
 	.SPI_DI(SPI_DI),
-	.SPI_DO(SPI_DO),
+	.SPI_DO(SPI_DO_DIO),
 	.SPI_SS2(SPI_SS2),
 	.SPI_SS4(SPI_SS4),
 
@@ -438,7 +456,7 @@ wire        bsram_rd = ~BSRAM_CE_N & (~BSRAM_RD_N || rom_type[7:4] == 4'hC);
 reg         bsram_rdD;
 wire        bsram_wr = ~BSRAM_CE_N & ~BSRAM_WE_N;
 reg         bsram_wrD;
-wire        bsram_req;
+reg         bsram_req;
 reg         bsram_req_reg;
 
 wire        VRAM_OE_N;
@@ -448,7 +466,7 @@ reg  [14:0] vram1_addr_sd;
 wire        VRAM1_WE_N;
 wire  [7:0] VRAM1_D, VRAM1_Q;
 reg   [7:0] vram1_din;
-wire        vram1_req;
+reg         vram1_req;
 reg         vram1_req_reg;
 reg         vram1_we_nD;
 
@@ -457,7 +475,7 @@ reg  [14:0] vram2_addr_sd;
 wire        VRAM2_WE_N;
 wire  [7:0] VRAM2_D, VRAM2_Q;
 reg   [7:0] vram2_din;
-wire        vram2_req;
+reg         vram2_req;
 reg         vram2_req_reg;
 reg         vram2_we_nD;
 
@@ -477,7 +495,7 @@ wire        aram_rd = ~ARAM_CE_N & ~ARAM_OE_N;
 reg         aram_rd_last;
 wire        aram_wr = ~ARAM_CE_N & ~ARAM_WE_N;
 reg         aram_wr_last;
-wire        aram_req;
+reg         aram_req;
 wire        aram_req_reg;
 
 wire        DOT_CLK_CE;
@@ -605,7 +623,7 @@ dpram #(17)	wram
 	.address_a(WRAM_ADDR),
 	.data_a(WRAM_D),
 	.wren_a(~WRAM_CE_N & ~WRAM_WE_N),
-	.q_a(WRAM_Q),
+	.q_a(WRAM_Q)
 /*
 	// clear the RAM on loading
 	.address_b(mem_fill_addr[16:0]),
@@ -616,20 +634,31 @@ dpram #(17)	wram
 `endif // BRAM_WRAM
 
 `ifdef BRAM_ARAM
-dpram_dif #(16,8,15,16) aram
+spram #(16,8) aram(
+    .clock(clk_sys),
+    .rdaddress(ARAM_ADDR),
+    .wraddress(ARAM_ADDR),
+    .data(ARAM_D),
+    .wren(~ARAM_CE_N & ~ARAM_WE_N),
+    .q(ARAM_Q)
+);
+//parameter addr_width=8, data_width=8, mem_init_file="", NUMWORDS=1<<addr_width
+
+/*dpram_dif #(16,8,15,16) aram
 (
 	.clock(clk_sys),
 	.address_a(ARAM_ADDR),
 	.data_a(ARAM_D),
 	.wren_a(~ARAM_CE_N & ~ARAM_WE_N),
-	.q_A(ARAM_Q),
-/*
+	.q_A(ARAM_Q)
+*//*
 	// clear the RAM on loading
 	.address_b(spc_download ? addr_download[15:1] : mem_fill_addr[15:1]),
 	.data_b(spc_download ? ioctl_dout : {2{aram_fill_data}}),
 	.wren_b(spc_download ? ioctl_wr : clearing_ram)
-*/
+*//*
 );
+*/
 `endif // BRAM_ARAM
 
 `ifndef BRAM_LEVEL_1
@@ -1215,7 +1244,7 @@ lightgun lightgun
 
 //////////////////////////// BACKUP RAM /////////////////////
 reg  [19:1] BSRAM_IO_ADDR;
-wire [15:0] BSRAM_IO_D;
+reg  [15:0] BSRAM_IO_D;
 wire [15:0] BSRAM_IO_Q;
 reg  [15:0] bsram_io_q_save;
 reg         bsram_io_req, bsram_io_req_d;

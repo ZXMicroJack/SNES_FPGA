@@ -423,12 +423,20 @@ begin
 	                 std_logic_vector(unsigned(PC) + ("1"&x"6BD")) when VER="011" else
 	                 std_logic_vector(unsigned(PC) + ("1"&x"D8B"));
 
-	PROG_ROM : entity work.spram_sz generic map(13, 24, 8096, "rtl/chip/DSP/dsp11b23410_p.mif")
+--	PROG_ROM : entity work.spram_sz generic map(13, 24, 8096, "rtl/chip/DSP/dsp11b23410_p.mif")
+--	port map(
+--		clock		=> CLK,
+--		address	=> PROG_ROM_ADDR,
+--		q			=> PROG_ROM_Q
+--	);
+
+	PROG_ROM : entity work.progrom generic map(13, 24)
 	port map(
 		clock		=> CLK,
-		address	=> PROG_ROM_ADDR,
+		address	    => PROG_ROM_ADDR,
 		q			=> PROG_ROM_Q
 	);
+
 
 	DATA_ROM_ADDR <= std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"000")) when VER="000" and REV='0' else
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"400")) when VER="000" and REV='1' else
@@ -436,7 +444,15 @@ begin
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"C00")) when VER="010" else
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("1"&x"000")) when VER="011" else
 	                 std_logic_vector(unsigned(RP(10 downto 0)) + ("1"&x"400"));
-	DATA_ROM : entity work.spram_sz generic map(13, 16, 7168, "rtl/chip/DSP/dsp11b23410_d.mif")
+	                 
+--	DATA_ROM : entity work.spram_sz generic map(13, 16, 7168, "rtl/chip/DSP/dsp11b23410_d.mif")
+--	port map(
+--		clock		=> CLK,
+--		address	=> DATA_ROM_ADDR,
+--		q			=> DATA_ROM_Q
+--	);
+
+	DATA_ROM : entity work.datarom generic map(13, 16)
 	port map(
 		clock		=> CLK,
 		address	=> DATA_ROM_ADDR,
@@ -444,7 +460,8 @@ begin
 	);
 	
 	DATA_RAM_ADDR_A <= "000" & DP(7 downto 0) when VER(2)='0' else DP;
-	DATA_RAM_ADDR_B <= DP_ADDR(11 downto 1) when DP_SEL = '1' and (WR_N = '0' or RD_N = '0') else DATA_RAM_ADDR_A or x"40";
+--	DATA_RAM_ADDR_B <= DP_ADDR(11 downto 1) when DP_SEL = '1' and (WR_N = '0' or RD_N = '0') else DATA_RAM_ADDR_A or x"40";
+	DATA_RAM_ADDR_B <= DP_ADDR(11 downto 1) when DP_SEL = '1' and (WR_N = '0' or RD_N = '0') else DATA_RAM_ADDR_A or "00001000000";
 	DATA_RAM_WE <= '1' when OP_INSTR /= INSTR_JP and OP_DST = x"F" and EN = '1' else '0';
 
 	DATA_RAML : entity work.dpram generic map(11, 8)

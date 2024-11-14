@@ -609,8 +609,9 @@ port map (
 	wren     => IRAM_WE,
 	data     => IRAM_DI,
 	q    		=> IRAM_DO,
-	address  => IRAM_A
-);  
+	wraddress  => IRAM_A,
+	rdaddress  => IRAM_A
+);
 
 
 -- DMA

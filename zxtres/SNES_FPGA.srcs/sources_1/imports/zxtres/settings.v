@@ -1,0 +1,12 @@
+`define I2S_AUDIO 1
+`define USE_AUDIO_IN 1
+`define USE_CLOCK_50 1
+`define BIG_OSD 1
+`define USE_SIMPLE_SDRAM 1
+`define BRAM_LEVEL_1 1
+`define BRAM_WRAM 1
+`define BRAM_ARAM 1
+`define EXTRA_CHIPS_1 1
+`define EXTRA_CHIPS_2 1
+`define AUDIO_CLOCK_RATE 32'd85_840_000
+`define VGA_8BIT 1

@@ -1,0 +1,7 @@
+verilog xil_defaultlib --include "../../../ipstatic" \
+"../../../../SNES_FPGA.gen/sources_1/ip/pll_sdram/pll_sdram_clk_wiz.v" \
+"../../../../SNES_FPGA.gen/sources_1/ip/pll_sdram/pll_sdram.v" \
+
+verilog xil_defaultlib "glbl.v"
+
+nosort

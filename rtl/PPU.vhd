@@ -1396,15 +1396,18 @@ end process;
 
 
 --Sprites engine
-OAM : entity work.dpram_dif generic map(8,16,7,32)
+--OAM : entity work.dpram_dif generic map(8,16,7,32)
+OAM : entity work.dpram_dif
 port map(
-	clock			=> CLK,
+	clock		=> CLK,
 	data_a		=> OAM_D,
 	address_a	=> OAM_ADDR_A,
 	address_b	=> OAM_ADDR_B,
 	wren_a		=> OAM_WE,
 	q_a			=> OAMIO_Q,
-	q_b			=> OAM_Q
+	q_b			=> OAM_Q,
+	wren_b      => "0",
+	data_b      => X"0000"
 );
 OAM_D <= DI & OAM_latch;
 OAM_ADDR_A <= OAM_ADDR(8 downto 1);

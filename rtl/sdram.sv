@@ -22,7 +22,7 @@ module sdram
 (
 
 	// interface to the MT48LC16M16 chip
-	inout  reg [15:0] SDRAM_DQ,   // 16 bit bidirectional data bus
+	inout      [15:0] SDRAM_DQ,   // 16 bit bidirectional data bus
 	output reg [12:0] SDRAM_A,    // 13 bit multiplexed address bus
 	output reg        SDRAM_DQML, // byte mask
 	output reg        SDRAM_DQMH, // byte mask
@@ -46,6 +46,11 @@ module sdram
 	output     [15:0] dout,
 	output reg        busy
 );
+
+reg[15:0] sdram_dq;
+reg       sdram_dq_out = 1'b0; 
+
+assign SDRAM_DQ[15:0] = sdram_dq_out ? sdram_dq : 16'hZZZZ; 
 
 assign SDRAM_nCS = 0;
 assign SDRAM_CKE = 1;
@@ -160,10 +165,11 @@ wire [1:0] dqm = {we & ~ds & ~a[0], we & ~ds & a[0]};
 always @(posedge clk) begin
 	if(state == STATE_START) SDRAM_BA <= (mode == MODE_NORMAL) ? addr[24:23] : 2'b00;
 
-	SDRAM_DQ <= 'Z;
+//	SDRAM_DQ <= 16'hZZZZ;
+	sdram_dq_out = 1'b0;
 	casex({ram_req,we,mode,state})
 		{2'bXX, MODE_NORMAL, STATE_START}: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= ram_req_test ? CMD_ACTIVE : CMD_AUTO_REFRESH;
-		{2'b11, MODE_NORMAL, STATE_CONT }: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE, SDRAM_DQ} <= {CMD_WRITE, data};
+		{2'b11, MODE_NORMAL, STATE_CONT }: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE, sdram_dq, sdram_dq_out} <= {CMD_WRITE, data, 1'b1};
 		{2'b10, MODE_NORMAL, STATE_CONT }: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_READ;
 
 		// init
@@ -185,6 +191,8 @@ always @(posedge clk) begin
 	else SDRAM_A <= 0;
 end
 
+assign SDRAM_CLK = !clk;
+/*
 altddio_out
 #(
 	.extend_oe_disable("OFF"),
@@ -208,6 +216,6 @@ sdramclk_ddr
 	.outclocken(1'b1),
 	.sclr(1'b0),
 	.sset(1'b0)
-);
+);*/
 
 endmodule

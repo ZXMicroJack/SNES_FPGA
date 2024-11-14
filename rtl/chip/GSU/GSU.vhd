@@ -839,7 +839,8 @@ begin
 			MULT_ACCESS_CNT <= "010";
 			MULT_WAIT <= '0';
 			MULTST <= MULTST_IDLE;
-		elsif falling_edge(CLK) then
+		else 
+		  if falling_edge(CLK) then
 			if EN = '1' then
 				if CPU_EN = '1' then
 					if (OP.OP = OP_MULT or OP.OP = OP_UMULT) and MC.LAST_CYCLE = '1' then
@@ -855,33 +856,36 @@ begin
 					MULT_WAIT <= '0';
 				end if;
 			end if;
-		elsif rising_edge(CLK) then
-			if EN = '1' then
-				case MULTST is
-					when MULTST_IDLE =>
-						if MULT_WAIT = '1' then
-							if LMULT = '1' then
-								if MS0 = '0' then
-									MULT_ACCESS_CNT <= "100";
-								else
-									MULT_ACCESS_CNT <= "000";
-								end if;
-							else
-								MULT_ACCESS_CNT <= "000";
-							end if;
-							MULTST <= MULTST_EXEC;
-						end if;
-					
-					when MULTST_EXEC =>
-						MULT_ACCESS_CNT <= MULT_ACCESS_CNT - 1;
-						if MULT_ACCESS_CNT = 0 then
-							MULTST <= MULTST_IDLE;
-						end if;
-						
-					when others => null;	
-				end case;
-			end if;
-		end if;
+		  end if;
+			
+			if rising_edge(CLK) then
+                if EN = '1' then
+                    case MULTST is
+                        when MULTST_IDLE =>
+                            if MULT_WAIT = '1' then
+                                if LMULT = '1' then
+                                    if MS0 = '0' then
+                                        MULT_ACCESS_CNT <= "100";
+                                    else
+                                        MULT_ACCESS_CNT <= "000";
+                                    end if;
+                                else
+                                    MULT_ACCESS_CNT <= "000";
+                                end if;
+                                MULTST <= MULTST_EXEC;
+                            end if;
+                        
+                        when MULTST_EXEC =>
+                            MULT_ACCESS_CNT <= MULT_ACCESS_CNT - 1;
+                            if MULT_ACCESS_CNT = 0 then
+                                MULTST <= MULTST_IDLE;
+                            end if;
+                            
+                        when others => null;	
+                    end case;
+                end if;
+            end if;
+         end if;
 	end process; 
 	
 	--Memory buses
@@ -911,162 +915,165 @@ begin
 			R14_CHANGE_LATCH := '0';
 			ROMST <= ROMST_IDLE;
 			FLAG_R <= '0';
-		elsif falling_edge(CLK) then
-			if GO = '1' then
-				ROM_FETCH_WAIT <= '0';
-				ROM_CACHE_WAIT <= '0';
-				if IN_CACHE = '0' and CODE_IN_ROM = '1' then
-					ROM_FETCH_PEND <= '1';
-					ROM_FETCH_WAIT <= '1';
-				elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
-					ROM_CACHE_WAIT <= '1';
-				end if;
-				ROM_FETCH_EN <= '0';
-				ROM_CACHE_EN <= '0';
-			end if;
 			
-			if EN = '1' then
-				if ROM_LOAD_START = '1' then
-					ROM_LOAD_PEND <= '0';
-				end if;
-				if CPU_EN = '1' and R14_CHANGE_LATCH = '1' then
-					ROM_LOAD_PEND <= '1';
-				end if;
-				
-				if ROM_LOAD_END = '1' and ROM_LOAD_WAIT = '1' then
-					ROM_LOAD_WAIT <= '0';
-				end if;
-				if (R14_CHANGE = '1' or MC.ROMWAIT = '1') and (R14_CHANGE_LATCH = '1' or ROMST = ROMST_LOAD) and ROM_LOAD_WAIT = '0' then--
-					ROM_LOAD_WAIT <= '1';
-				end if;
-				
-				if CPU_EN = '1' then
-					ROM_FETCH_EN <= '0';
-				end if;
-				if ROM_FETCH_START = '1' then
-					ROM_FETCH_PEND <= '0';
-				end if;
-				if ROM_FETCH_END = '1' then
-					ROM_FETCH_WAIT <= '0';
-					ROM_FETCH_EN <= '1';
-				end if;
-				if CPU_EN = '1' and MC.INCPC = '1' and IN_CACHE = '0' and CODE_IN_ROM = '1' then
-					ROM_FETCH_PEND <= '1';
-					ROM_FETCH_WAIT <= '1';
-				end if;
-				
-				ROM_CACHE_EN <= '0';		
-				if ROMST = ROMST_CACHE_DONE then
-					ROM_CACHE_EN <= '1';
-				end if;
-				if ROMST = ROMST_CACHE_END then
-					ROM_CACHE_WAIT <= '0';
-				end if;
-				if IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
-					ROM_CACHE_WAIT <= '1';
-				end if;
-			end if;
-		elsif rising_edge(CLK) then
-			if GO = '1' then
-				ROM_LOAD_START := '0';
-				ROM_FETCH_START := '0';
-				ROM_LOAD_END := '0';
-				ROM_FETCH_END := '0';
-			end if;
-			
---			GSU_ROM_RD <= '0';
-			if EN = '1' then
-				if TURBO = '1' then
-					ROM_CYCLES := "010";
-				elsif SPEED = '0' then
-					ROM_CYCLES := "001";
-				else 
-					ROM_CYCLES := "011";
-				end if;
-				
-				R14_CHANGE_LATCH := '0';
-				if CPU_EN = '1' and R14_CHANGE = '1' then
-					R14_CHANGE_LATCH := '1';
-				end if;
-				
-				ROM_LOAD_START := '0';
-				ROM_FETCH_START := '0';
-				ROM_LOAD_END := '0';
-				ROM_FETCH_END := '0';
-				case ROMST is
-					when ROMST_IDLE =>
-						if ROM_LOAD_PEND = '1' then
-							FLAG_R <= '1';
-							ROM_ACCESS_CNT <= ROM_CYCLES + 2;
-							ROM_LOAD_START := '1';
-							ROMST <= ROMST_LOAD;
---							GSU_ROM_RD <= '1';
-						elsif ROM_FETCH_PEND = '1' then
-							ROM_ACCESS_CNT <= ROM_CYCLES - 1;
-							ROM_FETCH_START := '1';
-							ROMST <= ROMST_FETCH;
---							GSU_ROM_RD <= '1';
-						elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
-							ROM_ACCESS_CNT <= ROM_CYCLES;
-							ROMST <= ROMST_CACHE;
---							GSU_ROM_RD <= '1';
-						end if;
-					
-					when ROMST_LOAD =>
-						if RON = '1' then
-							ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
-							if ROM_ACCESS_CNT = 0 then
-								ROMDR <= ROM_DI;
-								FLAG_R <= '0';
-								ROM_LOAD_END := '1';
-								ROMST <= ROMST_IDLE;
-							end if;
-						else
-							ROM_ACCESS_CNT <= ROM_CYCLES + 1;
-						end if;
-					
-					when ROMST_FETCH =>
-						if RON = '1' then
-							ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
-							if ROM_ACCESS_CNT = 0 then
-								ROM_BUF <= ROM_DI;
-								ROM_FETCH_END := '1';
-								ROMST <= ROMST_FETCH_DONE;
-							end if;
-						else
-							ROM_ACCESS_CNT <= ROM_CYCLES;
-						end if;
-					
-					when ROMST_FETCH_DONE =>
-						ROMST <= ROMST_IDLE;
-					
-					when ROMST_CACHE =>
-						if RON = '1' then
-							ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
-							if ROM_ACCESS_CNT = 0 then
-								ROM_BUF <= ROM_DI;
-								ROMST <= ROMST_CACHE_DONE;
-							end if;
-						else
-							ROM_ACCESS_CNT <= ROM_CYCLES;
-						end if;
-					
-					when ROMST_CACHE_DONE =>
-						if CACHE_DST_ADDR(3 downto 0) /= 15 then
---							GSU_ROM_RD <= '1';
-							ROM_ACCESS_CNT <= ROM_CYCLES;
-							ROMST <= ROMST_CACHE;
-						else
-							ROMST <= ROMST_CACHE_END;
-						end if;
-												
-					when ROMST_CACHE_END =>
-						ROMST <= ROMST_IDLE;
-						
-					when others => null;	
-				end case;
-			end if;
-		end if;
+            if falling_edge(CLK) then
+                if GO = '1' then
+                    ROM_FETCH_WAIT <= '0';
+                    ROM_CACHE_WAIT <= '0';
+                    if IN_CACHE = '0' and CODE_IN_ROM = '1' then
+                        ROM_FETCH_PEND <= '1';
+                        ROM_FETCH_WAIT <= '1';
+                    elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
+                        ROM_CACHE_WAIT <= '1';
+                    end if;
+                    ROM_FETCH_EN <= '0';
+                    ROM_CACHE_EN <= '0';
+                end if;
+                
+                if EN = '1' then
+                    if ROM_LOAD_START = '1' then
+                        ROM_LOAD_PEND <= '0';
+                    end if;
+                    if CPU_EN = '1' and R14_CHANGE_LATCH = '1' then
+                        ROM_LOAD_PEND <= '1';
+                    end if;
+                    
+                    if ROM_LOAD_END = '1' and ROM_LOAD_WAIT = '1' then
+                        ROM_LOAD_WAIT <= '0';
+                    end if;
+                    if (R14_CHANGE = '1' or MC.ROMWAIT = '1') and (R14_CHANGE_LATCH = '1' or ROMST = ROMST_LOAD) and ROM_LOAD_WAIT = '0' then--
+                        ROM_LOAD_WAIT <= '1';
+                    end if;
+                    
+                    if CPU_EN = '1' then
+                        ROM_FETCH_EN <= '0';
+                    end if;
+                    if ROM_FETCH_START = '1' then
+                        ROM_FETCH_PEND <= '0';
+                    end if;
+                    if ROM_FETCH_END = '1' then
+                        ROM_FETCH_WAIT <= '0';
+                        ROM_FETCH_EN <= '1';
+                    end if;
+                    if CPU_EN = '1' and MC.INCPC = '1' and IN_CACHE = '0' and CODE_IN_ROM = '1' then
+                        ROM_FETCH_PEND <= '1';
+                        ROM_FETCH_WAIT <= '1';
+                    end if;
+                    
+                    ROM_CACHE_EN <= '0';		
+                    if ROMST = ROMST_CACHE_DONE then
+                        ROM_CACHE_EN <= '1';
+                    end if;
+                    if ROMST = ROMST_CACHE_END then
+                        ROM_CACHE_WAIT <= '0';
+                    end if;
+                    if IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
+                        ROM_CACHE_WAIT <= '1';
+                    end if;
+                end if;
+            end if;
+            if rising_edge(CLK) then
+                if GO = '1' then
+                    ROM_LOAD_START := '0';
+                    ROM_FETCH_START := '0';
+                    ROM_LOAD_END := '0';
+                    ROM_FETCH_END := '0';
+                end if;
+                
+    --			GSU_ROM_RD <= '0';
+                if EN = '1' then
+                    if TURBO = '1' then
+                        ROM_CYCLES := "010";
+                    elsif SPEED = '0' then
+                        ROM_CYCLES := "001";
+                    else 
+                        ROM_CYCLES := "011";
+                    end if;
+                    
+                    R14_CHANGE_LATCH := '0';
+                    if CPU_EN = '1' and R14_CHANGE = '1' then
+                        R14_CHANGE_LATCH := '1';
+                    end if;
+                    
+                    ROM_LOAD_START := '0';
+                    ROM_FETCH_START := '0';
+                    ROM_LOAD_END := '0';
+                    ROM_FETCH_END := '0';
+                    case ROMST is
+                        when ROMST_IDLE =>
+                            if ROM_LOAD_PEND = '1' then
+                                FLAG_R <= '1';
+                                ROM_ACCESS_CNT <= ROM_CYCLES + 2;
+                                ROM_LOAD_START := '1';
+                                ROMST <= ROMST_LOAD;
+    --							GSU_ROM_RD <= '1';
+                            elsif ROM_FETCH_PEND = '1' then
+                                ROM_ACCESS_CNT <= ROM_CYCLES - 1;
+                                ROM_FETCH_START := '1';
+                                ROMST <= ROMST_FETCH;
+    --							GSU_ROM_RD <= '1';
+                            elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_ROM = '1' then
+                                ROM_ACCESS_CNT <= ROM_CYCLES;
+                                ROMST <= ROMST_CACHE;
+    --							GSU_ROM_RD <= '1';
+                            end if;
+                        
+                        when ROMST_LOAD =>
+                            if RON = '1' then
+                                ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
+                                if ROM_ACCESS_CNT = 0 then
+                                    ROMDR <= ROM_DI;
+                                    FLAG_R <= '0';
+                                    ROM_LOAD_END := '1';
+                                    ROMST <= ROMST_IDLE;
+                                end if;
+                            else
+                                ROM_ACCESS_CNT <= ROM_CYCLES + 1;
+                            end if;
+                        
+                        when ROMST_FETCH =>
+                            if RON = '1' then
+                                ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
+                                if ROM_ACCESS_CNT = 0 then
+                                    ROM_BUF <= ROM_DI;
+                                    ROM_FETCH_END := '1';
+                                    ROMST <= ROMST_FETCH_DONE;
+                                end if;
+                            else
+                                ROM_ACCESS_CNT <= ROM_CYCLES;
+                            end if;
+                        
+                        when ROMST_FETCH_DONE =>
+                            ROMST <= ROMST_IDLE;
+                        
+                        when ROMST_CACHE =>
+                            if RON = '1' then
+                                ROM_ACCESS_CNT <= ROM_ACCESS_CNT - 1;
+                                if ROM_ACCESS_CNT = 0 then
+                                    ROM_BUF <= ROM_DI;
+                                    ROMST <= ROMST_CACHE_DONE;
+                                end if;
+                            else
+                                ROM_ACCESS_CNT <= ROM_CYCLES;
+                            end if;
+                        
+                        when ROMST_CACHE_DONE =>
+                            if CACHE_DST_ADDR(3 downto 0) /= 15 then
+    --							GSU_ROM_RD <= '1';
+                                ROM_ACCESS_CNT <= ROM_CYCLES;
+                                ROMST <= ROMST_CACHE;
+                            else
+                                ROMST <= ROMST_CACHE_END;
+                            end if;
+                                                    
+                        when ROMST_CACHE_END =>
+                            ROMST <= ROMST_IDLE;
+                            
+                        when others => null;	
+                    end case;
+                end if;
+            end if;
+        end if;
 	end process; 
 	
 	process(CLK, RST_N)
@@ -1182,358 +1189,361 @@ begin
 			PCF_RD_DATA <= (others => '0');
 			RPIX_DATA <= (others => '0');
 			BPP_CNT <= (others => '0');
-		elsif falling_edge(CLK) then
-			if GO = '1' then
-				RAM_FETCH_WAIT <= '0';
-				RAM_CACHE_WAIT <= '0';
-				if IN_CACHE = '0' and CODE_IN_RAM = '1' then
-					RAM_FETCH_PEND <= '1';
-					RAM_FETCH_WAIT <= '1';
-				elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
-					RAM_CACHE_WAIT <= '1';
-				end if;
-				RAM_FETCH_EN <= '0';
-				RAM_CACHE_EN <= '0';
-			end if;
-			if EN = '1' then
-				if RAM_SAVE_START = '1' then
-					RAM_SAVE_PEND <= '0';
-				elsif RAM_LOAD_START = '1' then
-					RAM_LOAD_PEND <= '0';
-				elsif RAM_PCF_START = '1' then
-					RAM_PCF_PEND <= '0';
-				elsif RAM_RPIX_START = '1' then
-					RAM_RPIX_PEND <= '0';
-				end if;
-				
-				if CPU_EN = '1' then
-					if (OP.OP = OP_LDB or OP.OP = OP_LDW or OP.OP = OP_LM or OP.OP = OP_LMS) and MC.LAST_CYCLE = '1' then
-						RAM_LOAD_PEND <= '1';
-						RAM_LOAD_WAIT <= '1';
-					elsif (OP.OP = OP_STB or OP.OP = OP_STW or OP.OP = OP_SM or OP.OP = OP_SMS or OP.OP = OP_SBK) and MC.LAST_CYCLE = '1' then
-						RAM_SAVE_PEND <= '1';
-					elsif OP.OP = OP_RPIX and MC.LAST_CYCLE = '1' then
-						RAM_PCF_FULL <= '0';
-						RAM_PCF_PEND <= '1';
-						RAM_PCF_WAIT <= '1';
-						RAM_RPIX_PEND <= '1';
-					end if;
-				end if;
-				
-				if MC.RAMWAIT = '1' and (RAM_SAVE_PEND = '1' or RAMST = RAMST_SAVE) and RAM_SAVE_WAIT = '0' then
-					RAM_SAVE_WAIT <= '1';
-				elsif (OP.OP = OP_STOP or (OP.OP = OP_RPIX and STATE = 0)) and (RAM_PCF_PEND = '1' or RAM_PCF_EXEC = '1') and RAM_PCF_WAIT = '0' then
-					RAM_PCF_WAIT <= '1';
-				end if;
-				
-				if (PC0_OFFS_HIT = '0' and PC0_EMPTY = '0') or PC0_FULL = '1' then
-					RAM_PCF_PEND <= '1';
-					if RAM_PCF_EXEC = '1' then
-						RAM_PCF_WAIT <= '1';
-					end if;
-					RAM_PCF_FULL <= PC0_FULL;
-				end if;
-				
-				if RAM_LOAD_END = '1' then
-					RAM_LOAD_WAIT <= '0';
-				end if;
-				if RAM_SAVE_END = '1' then
-					RAM_SAVE_WAIT <= '0';
-				end if;
-				if RAM_PCF_END = '1' then
-					RAM_PCF_WAIT <= '0';
-				end if;
-				
-				if CPU_EN = '1' then
-					RAM_FETCH_EN <= '0';
-				end if;
-				if RAM_FETCH_START = '1' then
-					RAM_FETCH_PEND <= '0';
-				end if;
-				if RAM_FETCH_END = '1' then
-					RAM_FETCH_WAIT <= '0';
-					RAM_FETCH_EN <= '1';
-				end if;
-				if CPU_EN = '1' and MC.INCPC = '1' and IN_CACHE = '0' and CODE_IN_RAM = '1' then
-					RAM_FETCH_PEND <= '1';
-					RAM_FETCH_WAIT <= '1';
-				end if;
-				
-				RAM_CACHE_EN <= '0';		
-				if RAM_CACHE_END = '1' then
-					RAM_CACHE_EN <= '1';
-				elsif RAMST = RAMST_CACHE_END then
-					RAM_CACHE_WAIT <= '0';
-				end if;
-				if IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
-					RAM_CACHE_WAIT <= '1';
-				end if;
-			end if;
-		elsif rising_edge(CLK) then
-			if GO = '1' then
-				RAM_SAVE_START := '0';
-				RAM_LOAD_START := '0';
-				RAM_PCF_START := '0';
-				RAM_RPIX_START := '0';
-				RAM_FETCH_START := '0';
-				RAM_SAVE_END := '0';
-				RAM_LOAD_END := '0';
-				RAM_PCF_END := '0';
-				RAM_FETCH_END := '0';
-				RAM_CACHE_END := '0';
-			end if;
-			
-			if EN = '1' then
-				if TURBO = '1' then
-					RAM_CYCLES := "001";
-				elsif SPEED = '0' then
-					RAM_CYCLES := "001";
-				else 
-					RAM_CYCLES := "011";
-				end if;
-				
-				if ((PC0_OFFS_HIT = '0' and PC0_EMPTY = '0') or PC0_FULL = '1') and RAM_PCF_WAIT = '0' then
-					PIX_CACHE(1) <= PIX_CACHE(0);
-					PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
-					PIX_CACHE(0).VALID <= (others => '0');
-				end if;
-				
-				if CPU_EN = '1' then
-					if MC.RAMADDR /= "000" then
-						if MC.RAMADDR = "001" then
-							RAMADDR(7 downto 0) <= OPDATA;
-						elsif MC.RAMADDR = "010" then
-							RAMADDR(15 downto 8) <= OPDATA;
-						elsif MC.RAMADDR = "011" then
-							RAMADDR <= R(to_integer(OP_N));
-						elsif MC.RAMADDR = "100" then
-							RAMADDR <= "0000000" & OPDATA & "0";
-						end if;
-						if MC.RAMST(1 downto 0) /= "00" then
-							if MC.RAMST(2) = '0' then
-								RAMDR <= R(to_integer(SREG));
-							else
-								RAMDR <= R(to_integer(OP_N));
-							end if;
-						end if;
-						RAM_LOAD_WORD := MC.RAMLD(1);
-						RAM_STORE_WORD := MC.RAMST(1);
-					elsif OP.OP = OP_CMODE then
-						POR_TRANS <= R(to_integer(SREG))(0);
-						POR_DITH <= R(to_integer(SREG))(1);
-						POR_HN <= R(to_integer(SREG))(2);
-						POR_FH <= R(to_integer(SREG))(3);
-						POR_OBJ <= R(to_integer(SREG))(4);
-					elsif OP.OP = OP_COLOR or OP.OP = OP_GETC then
-						if OP.OP = OP_GETC then
-							NEW_COLOR := ROMDR;
-						else
-							NEW_COLOR := R(to_integer(SREG))(7 downto 0);
-						end if;
-						if POR_HN = '1' then
-							COLR(3 downto 0) <= NEW_COLOR(7 downto 4);
-						else
-							COLR(3 downto 0) <= NEW_COLOR(3 downto 0);
-						end if;
-						if POR_FH = '0' then
-							COLR(7 downto 4) <= NEW_COLOR(7 downto 4);
-						end if;
-					elsif OP.OP = OP_PLOT then
-						if POR_DITH = '1' and SCMR_MD /= "11" then
-							if (R(1)(0) xor R(2)(0)) = '1' then
-								COL_DITH := "0000" & COLR(7 downto 4);
-							else
-								COL_DITH := "0000" & COLR(3 downto 0);
-							end if;
-						else
-							COL_DITH := COLR;
-						end if;
-						
-						PIX_CACHE(0).DATA(to_integer(not PC_X(2 downto 0))) <= COL_DITH;
-						PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
-						PIX_CACHE(0).VALID(to_integer(not PC_X(2 downto 0))) <= PLOT_EXEC;
-					elsif OP.OP = OP_RPIX and STATE = 0 then
-						PIX_CACHE(1) <= PIX_CACHE(0);
-						PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
-						PIX_CACHE(0).VALID <= (others => '0');
-					end if;
-				end if;
-				
-				RAM_SAVE_START := '0';
-				RAM_LOAD_START := '0';
-				RAM_PCF_START := '0';
-				RAM_RPIX_START := '0';
-				RAM_FETCH_START := '0';
-				RAM_SAVE_END := '0';
-				RAM_LOAD_END := '0';
-				RAM_PCF_END := '0';
-				RAM_FETCH_END := '0';
-				RAM_CACHE_END := '0';
-				case RAMST is
-					when RAMST_IDLE =>
-						if RAM_SAVE_PEND = '1' then
-							RAM_WORD <= RAM_STORE_WORD;
-							RAM_BYTES <= '0';
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAM_SAVE_START := '1';
-							RAMST <= RAMST_SAVE;
-						elsif RAM_LOAD_PEND = '1' then
-							RAM_WORD <= RAM_LOAD_WORD;
-							RAM_BYTES <= '0';
-							RAM_LOAD_BUF <= (others => '0');
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAM_LOAD_START := '1';
-							RAMST <= RAMST_LOAD;
-						elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAMST <= RAMST_CACHE;
-						elsif RAM_PCF_EXEC = '1' then
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAMST <= RAMST_PCF;
-						elsif RAM_RPIX_EXEC = '1' then
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAMST <= RAMST_RPIX;
-						elsif RAM_PCF_PEND = '1' then
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAM_PCF_START := '1';
-							RAM_PCF_EXEC := '1';
-							PCF_RW <= RAM_PCF_FULL;
-							PCF_WO <= RAM_PCF_FULL;
-							RPIX_DATA <= (others => '0');
-							RAMST <= RAMST_PCF;
-						elsif RAM_RPIX_PEND = '1' then
-							RAM_RPIX_START := '1';
-							RAM_RPIX_EXEC := '1';
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAMST <= RAMST_RPIX;
-						elsif RAM_FETCH_PEND = '1' then
-							RAM_ACCESS_CNT <= RAM_CYCLES - 1;
-							RAM_FETCH_START := '1';
-							RAMST <= RAMST_FETCH;
-						end if;
-						
-					when RAMST_LOAD =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0 then
-								RAM_ACCESS_CNT <= RAM_CYCLES;
-								RAM_BYTES <= '1';
-								if RAM_BYTES = '0' then
-									RAM_LOAD_BUF(7 downto 0) <= RAM_DI;
-								else
-									RAM_LOAD_BUF(15 downto 8) <= RAM_DI;
-								end if;
-								if RAM_BYTES = RAM_WORD then
-									RAM_LOAD_END := '1';
-									RAMST <= RAMST_IDLE;
-								end if;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-						
-					when RAMST_SAVE =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0  then
-								RAM_ACCESS_CNT <= RAM_CYCLES;
-								RAM_BYTES <= '1';
-								if RAM_BYTES = RAM_WORD then
-									RAM_SAVE_END := '1';
-									RAMST <= RAMST_IDLE;
-								end if;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-							
-					when RAMST_PCF =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0 then
-								PCF_RW <= (not PCF_RW) or PCF_WO;
-								RAMST <= RAMST_IDLE;
-								if PCF_RW = '0' and PCF_WO = '0' then
-									PCF_RD_DATA <= RAM_DI;
-								else
-									BPP_CNT <= BPP_CNT + 1;
-									if BPP_CNT = GetLastBPP(SCMR_MD) then
-										BPP_CNT <= (others => '0');
-										PIX_CACHE(1).VALID <= (others => '0');
-										RAMST <= RAMST_PCF_END;
-									end if;
-								end if;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-					
-					when RAMST_PCF_END =>
-						RAM_PCF_EXEC := '0';
-						if RAM_RPIX_PEND = '0' then
-							RAM_PCF_END := '1';
-						end if;
-						RAMST <= RAMST_IDLE;
-						
-					when RAMST_RPIX =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0 then
-								RPIX_DATA(to_integer(BPP_CNT)) <= RAM_DI(to_integer(not PC_X(2 downto 0)));
-								BPP_CNT <= BPP_CNT + 1;
-								if BPP_CNT = GetLastBPP(SCMR_MD) then
-									BPP_CNT <= (others => '0');
-									RAM_RPIX_EXEC := '0';
-									RAM_PCF_END := '1';
-								end if;
-								RAMST <= RAMST_IDLE;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-						
-					when RAMST_FETCH =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0 then
-								RAM_BUF <= RAM_DI;
-								RAM_FETCH_END := '1';
-								RAMST <= RAMST_FETCH_DONE;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-					
-					when RAMST_FETCH_DONE =>
-						RAMST <= RAMST_IDLE;
-												
-					when RAMST_CACHE =>
-						if RAN = '1' then
-							RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
-							if RAM_ACCESS_CNT = 0 then
-								RAM_BUF <= RAM_DI;
-								RAM_CACHE_END := '1';
-								RAMST <= RAMST_CACHE_DONE;
-							end if;
-						else
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-						end if;
-					
-					when RAMST_CACHE_DONE =>
-						if CACHE_DST_ADDR(3 downto 0) /= 15 then
-							RAM_ACCESS_CNT <= RAM_CYCLES;
-							RAMST <= RAMST_CACHE;
-						else
-							RAMST <= RAMST_CACHE_END;
-						end if;
-												
-					when RAMST_CACHE_END =>
-						RAMST <= RAMST_IDLE;
-					
-					when others => null;	
-				end case;
-			end if;
-		end if;
+		else
+            if falling_edge(CLK) then
+                if GO = '1' then
+                    RAM_FETCH_WAIT <= '0';
+                    RAM_CACHE_WAIT <= '0';
+                    if IN_CACHE = '0' and CODE_IN_RAM = '1' then
+                        RAM_FETCH_PEND <= '1';
+                        RAM_FETCH_WAIT <= '1';
+                    elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
+                        RAM_CACHE_WAIT <= '1';
+                    end if;
+                    RAM_FETCH_EN <= '0';
+                    RAM_CACHE_EN <= '0';
+                end if;
+                if EN = '1' then
+                    if RAM_SAVE_START = '1' then
+                        RAM_SAVE_PEND <= '0';
+                    elsif RAM_LOAD_START = '1' then
+                        RAM_LOAD_PEND <= '0';
+                    elsif RAM_PCF_START = '1' then
+                        RAM_PCF_PEND <= '0';
+                    elsif RAM_RPIX_START = '1' then
+                        RAM_RPIX_PEND <= '0';
+                    end if;
+                    
+                    if CPU_EN = '1' then
+                        if (OP.OP = OP_LDB or OP.OP = OP_LDW or OP.OP = OP_LM or OP.OP = OP_LMS) and MC.LAST_CYCLE = '1' then
+                            RAM_LOAD_PEND <= '1';
+                            RAM_LOAD_WAIT <= '1';
+                        elsif (OP.OP = OP_STB or OP.OP = OP_STW or OP.OP = OP_SM or OP.OP = OP_SMS or OP.OP = OP_SBK) and MC.LAST_CYCLE = '1' then
+                            RAM_SAVE_PEND <= '1';
+                        elsif OP.OP = OP_RPIX and MC.LAST_CYCLE = '1' then
+                            RAM_PCF_FULL <= '0';
+                            RAM_PCF_PEND <= '1';
+                            RAM_PCF_WAIT <= '1';
+                            RAM_RPIX_PEND <= '1';
+                        end if;
+                    end if;
+                    
+                    if MC.RAMWAIT = '1' and (RAM_SAVE_PEND = '1' or RAMST = RAMST_SAVE) and RAM_SAVE_WAIT = '0' then
+                        RAM_SAVE_WAIT <= '1';
+                    elsif (OP.OP = OP_STOP or (OP.OP = OP_RPIX and STATE = 0)) and (RAM_PCF_PEND = '1' or RAM_PCF_EXEC = '1') and RAM_PCF_WAIT = '0' then
+                        RAM_PCF_WAIT <= '1';
+                    end if;
+                    
+                    if (PC0_OFFS_HIT = '0' and PC0_EMPTY = '0') or PC0_FULL = '1' then
+                        RAM_PCF_PEND <= '1';
+                        if RAM_PCF_EXEC = '1' then
+                            RAM_PCF_WAIT <= '1';
+                        end if;
+                        RAM_PCF_FULL <= PC0_FULL;
+                    end if;
+                    
+                    if RAM_LOAD_END = '1' then
+                        RAM_LOAD_WAIT <= '0';
+                    end if;
+                    if RAM_SAVE_END = '1' then
+                        RAM_SAVE_WAIT <= '0';
+                    end if;
+                    if RAM_PCF_END = '1' then
+                        RAM_PCF_WAIT <= '0';
+                    end if;
+                    
+                    if CPU_EN = '1' then
+                        RAM_FETCH_EN <= '0';
+                    end if;
+                    if RAM_FETCH_START = '1' then
+                        RAM_FETCH_PEND <= '0';
+                    end if;
+                    if RAM_FETCH_END = '1' then
+                        RAM_FETCH_WAIT <= '0';
+                        RAM_FETCH_EN <= '1';
+                    end if;
+                    if CPU_EN = '1' and MC.INCPC = '1' and IN_CACHE = '0' and CODE_IN_RAM = '1' then
+                        RAM_FETCH_PEND <= '1';
+                        RAM_FETCH_WAIT <= '1';
+                    end if;
+                    
+                    RAM_CACHE_EN <= '0';		
+                    if RAM_CACHE_END = '1' then
+                        RAM_CACHE_EN <= '1';
+                    elsif RAMST = RAMST_CACHE_END then
+                        RAM_CACHE_WAIT <= '0';
+                    end if;
+                    if IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
+                        RAM_CACHE_WAIT <= '1';
+                    end if;
+                end if;
+            end if;
+            if rising_edge(CLK) then -- elsif falling_edge(CLK) then
+                if GO = '1' then
+                    RAM_SAVE_START := '0';
+                    RAM_LOAD_START := '0';
+                    RAM_PCF_START := '0';
+                    RAM_RPIX_START := '0';
+                    RAM_FETCH_START := '0';
+                    RAM_SAVE_END := '0';
+                    RAM_LOAD_END := '0';
+                    RAM_PCF_END := '0';
+                    RAM_FETCH_END := '0';
+                    RAM_CACHE_END := '0';
+                end if;
+                
+                if EN = '1' then
+                    if TURBO = '1' then
+                        RAM_CYCLES := "001";
+                    elsif SPEED = '0' then
+                        RAM_CYCLES := "001";
+                    else 
+                        RAM_CYCLES := "011";
+                    end if;
+                    
+                    if ((PC0_OFFS_HIT = '0' and PC0_EMPTY = '0') or PC0_FULL = '1') and RAM_PCF_WAIT = '0' then
+                        PIX_CACHE(1) <= PIX_CACHE(0);
+                        PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
+                        PIX_CACHE(0).VALID <= (others => '0');
+                    end if;
+                    
+                    if CPU_EN = '1' then
+                        if MC.RAMADDR /= "000" then
+                            if MC.RAMADDR = "001" then
+                                RAMADDR(7 downto 0) <= OPDATA;
+                            elsif MC.RAMADDR = "010" then
+                                RAMADDR(15 downto 8) <= OPDATA;
+                            elsif MC.RAMADDR = "011" then
+                                RAMADDR <= R(to_integer(OP_N));
+                            elsif MC.RAMADDR = "100" then
+                                RAMADDR <= "0000000" & OPDATA & "0";
+                            end if;
+                            if MC.RAMST(1 downto 0) /= "00" then
+                                if MC.RAMST(2) = '0' then
+                                    RAMDR <= R(to_integer(SREG));
+                                else
+                                    RAMDR <= R(to_integer(OP_N));
+                                end if;
+                            end if;
+                            RAM_LOAD_WORD := MC.RAMLD(1);
+                            RAM_STORE_WORD := MC.RAMST(1);
+                        elsif OP.OP = OP_CMODE then
+                            POR_TRANS <= R(to_integer(SREG))(0);
+                            POR_DITH <= R(to_integer(SREG))(1);
+                            POR_HN <= R(to_integer(SREG))(2);
+                            POR_FH <= R(to_integer(SREG))(3);
+                            POR_OBJ <= R(to_integer(SREG))(4);
+                        elsif OP.OP = OP_COLOR or OP.OP = OP_GETC then
+                            if OP.OP = OP_GETC then
+                                NEW_COLOR := ROMDR;
+                            else
+                                NEW_COLOR := R(to_integer(SREG))(7 downto 0);
+                            end if;
+                            if POR_HN = '1' then
+                                COLR(3 downto 0) <= NEW_COLOR(7 downto 4);
+                            else
+                                COLR(3 downto 0) <= NEW_COLOR(3 downto 0);
+                            end if;
+                            if POR_FH = '0' then
+                                COLR(7 downto 4) <= NEW_COLOR(7 downto 4);
+                            end if;
+                        elsif OP.OP = OP_PLOT then
+                            if POR_DITH = '1' and SCMR_MD /= "11" then
+                                if (R(1)(0) xor R(2)(0)) = '1' then
+                                    COL_DITH := "0000" & COLR(7 downto 4);
+                                else
+                                    COL_DITH := "0000" & COLR(3 downto 0);
+                                end if;
+                            else
+                                COL_DITH := COLR;
+                            end if;
+                            
+                            PIX_CACHE(0).DATA(to_integer(not PC_X(2 downto 0))) <= COL_DITH;
+                            PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
+                            PIX_CACHE(0).VALID(to_integer(not PC_X(2 downto 0))) <= PLOT_EXEC;
+                        elsif OP.OP = OP_RPIX and STATE = 0 then
+                            PIX_CACHE(1) <= PIX_CACHE(0);
+                            PIX_CACHE(0).OFFSET <= PC_Y & PC_X(7 downto 3);
+                            PIX_CACHE(0).VALID <= (others => '0');
+                        end if;
+                    end if;
+                    
+                    RAM_SAVE_START := '0';
+                    RAM_LOAD_START := '0';
+                    RAM_PCF_START := '0';
+                    RAM_RPIX_START := '0';
+                    RAM_FETCH_START := '0';
+                    RAM_SAVE_END := '0';
+                    RAM_LOAD_END := '0';
+                    RAM_PCF_END := '0';
+                    RAM_FETCH_END := '0';
+                    RAM_CACHE_END := '0';
+                    case RAMST is
+                        when RAMST_IDLE =>
+                            if RAM_SAVE_PEND = '1' then
+                                RAM_WORD <= RAM_STORE_WORD;
+                                RAM_BYTES <= '0';
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAM_SAVE_START := '1';
+                                RAMST <= RAMST_SAVE;
+                            elsif RAM_LOAD_PEND = '1' then
+                                RAM_WORD <= RAM_LOAD_WORD;
+                                RAM_BYTES <= '0';
+                                RAM_LOAD_BUF <= (others => '0');
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAM_LOAD_START := '1';
+                                RAMST <= RAMST_LOAD;
+                            elsif IN_CACHE = '1' and VAL_CACHE = '0' and CODE_IN_RAM = '1' then
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAMST <= RAMST_CACHE;
+                            elsif RAM_PCF_EXEC = '1' then
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAMST <= RAMST_PCF;
+                            elsif RAM_RPIX_EXEC = '1' then
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAMST <= RAMST_RPIX;
+                            elsif RAM_PCF_PEND = '1' then
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAM_PCF_START := '1';
+                                RAM_PCF_EXEC := '1';
+                                PCF_RW <= RAM_PCF_FULL;
+                                PCF_WO <= RAM_PCF_FULL;
+                                RPIX_DATA <= (others => '0');
+                                RAMST <= RAMST_PCF;
+                            elsif RAM_RPIX_PEND = '1' then
+                                RAM_RPIX_START := '1';
+                                RAM_RPIX_EXEC := '1';
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAMST <= RAMST_RPIX;
+                            elsif RAM_FETCH_PEND = '1' then
+                                RAM_ACCESS_CNT <= RAM_CYCLES - 1;
+                                RAM_FETCH_START := '1';
+                                RAMST <= RAMST_FETCH;
+                            end if;
+                            
+                        when RAMST_LOAD =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0 then
+                                    RAM_ACCESS_CNT <= RAM_CYCLES;
+                                    RAM_BYTES <= '1';
+                                    if RAM_BYTES = '0' then
+                                        RAM_LOAD_BUF(7 downto 0) <= RAM_DI;
+                                    else
+                                        RAM_LOAD_BUF(15 downto 8) <= RAM_DI;
+                                    end if;
+                                    if RAM_BYTES = RAM_WORD then
+                                        RAM_LOAD_END := '1';
+                                        RAMST <= RAMST_IDLE;
+                                    end if;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                            
+                        when RAMST_SAVE =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0  then
+                                    RAM_ACCESS_CNT <= RAM_CYCLES;
+                                    RAM_BYTES <= '1';
+                                    if RAM_BYTES = RAM_WORD then
+                                        RAM_SAVE_END := '1';
+                                        RAMST <= RAMST_IDLE;
+                                    end if;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                                
+                        when RAMST_PCF =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0 then
+                                    PCF_RW <= (not PCF_RW) or PCF_WO;
+                                    RAMST <= RAMST_IDLE;
+                                    if PCF_RW = '0' and PCF_WO = '0' then
+                                        PCF_RD_DATA <= RAM_DI;
+                                    else
+                                        BPP_CNT <= BPP_CNT + 1;
+                                        if BPP_CNT = GetLastBPP(SCMR_MD) then
+                                            BPP_CNT <= (others => '0');
+                                            PIX_CACHE(1).VALID <= (others => '0');
+                                            RAMST <= RAMST_PCF_END;
+                                        end if;
+                                    end if;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                        
+                        when RAMST_PCF_END =>
+                            RAM_PCF_EXEC := '0';
+                            if RAM_RPIX_PEND = '0' then
+                                RAM_PCF_END := '1';
+                            end if;
+                            RAMST <= RAMST_IDLE;
+                            
+                        when RAMST_RPIX =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0 then
+                                    RPIX_DATA(to_integer(BPP_CNT)) <= RAM_DI(to_integer(not PC_X(2 downto 0)));
+                                    BPP_CNT <= BPP_CNT + 1;
+                                    if BPP_CNT = GetLastBPP(SCMR_MD) then
+                                        BPP_CNT <= (others => '0');
+                                        RAM_RPIX_EXEC := '0';
+                                        RAM_PCF_END := '1';
+                                    end if;
+                                    RAMST <= RAMST_IDLE;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                            
+                        when RAMST_FETCH =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0 then
+                                    RAM_BUF <= RAM_DI;
+                                    RAM_FETCH_END := '1';
+                                    RAMST <= RAMST_FETCH_DONE;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                        
+                        when RAMST_FETCH_DONE =>
+                            RAMST <= RAMST_IDLE;
+                                                    
+                        when RAMST_CACHE =>
+                            if RAN = '1' then
+                                RAM_ACCESS_CNT <= RAM_ACCESS_CNT - 1;
+                                if RAM_ACCESS_CNT = 0 then
+                                    RAM_BUF <= RAM_DI;
+                                    RAM_CACHE_END := '1';
+                                    RAMST <= RAMST_CACHE_DONE;
+                                end if;
+                            else
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                            end if;
+                        
+                        when RAMST_CACHE_DONE =>
+                            if CACHE_DST_ADDR(3 downto 0) /= 15 then
+                                RAM_ACCESS_CNT <= RAM_CYCLES;
+                                RAMST <= RAMST_CACHE;
+                            else
+                                RAMST <= RAMST_CACHE_END;
+                            end if;
+                                                    
+                        when RAMST_CACHE_END =>
+                            RAMST <= RAMST_IDLE;
+                        
+                        when others => null;	
+                    end case;
+                end if;
+            end if; -- elsif falling_edge(CLK) then
+        end if;
 	end process; 
 	
 	PCF_WR_DATA <= (PCF_RD_DATA and not PIX_CACHE(1).VALID) or (GetPCData(PIX_CACHE(1),BPP_CNT) and PIX_CACHE(1).VALID);
